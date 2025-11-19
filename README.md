@@ -6,3 +6,6 @@ You can find this dataset on Kaggle via the following link:
 https://www.kaggle.com/datasets/logiccraftbyhimanshi/walmart-customer-purchase-behavior-dataset
 
 
+### Business Questions Pursued
+
+***1. What drives purchase amount?***

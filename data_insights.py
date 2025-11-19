@@ -1,6 +1,8 @@
 from typing import Any
 
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 from pathlib import Path
 from utils import printing as prt
 
@@ -126,6 +128,107 @@ class DataInsights:
             prt.print_dataframe(summary)
         else:
             print(f"No numeric data exists in dataset...")
+
+
+    @print_divider("NUMERIC COLUMNS DISTRIBUTION PLOTS")
+    def numeric_distributions(self, figsize: tuple = (10, 6), bins: int = 30, kde: bool = True, hspace: float = 0.3):
+        """
+        Plot the distribution of each numeric column in the dataset.
+        
+        Args:
+            figsize: Figure size tuple (width, height) for each subplot
+            bins: Number of bins for histogram
+            kde: Whether to overlay Kernel Density Estimation (KDE) plot
+            hspace: Height space between subplots (default: 0.3). Increase for more spacing.
+        """
+        
+        numeric_columns = self.df.select_dtypes(include=["number"]).columns.tolist()
+        
+        if len(numeric_columns) == 0:
+            print("No numerical data found in dataset...")
+            return
+        
+        print(f"Plotting distributions for {len(numeric_columns)} numeric column(s):")
+        for i, col_name in enumerate(numeric_columns):
+            print(f"  {i+1}. {col_name}")
+        
+        # Calculate grid dimensions for subplots
+        n_cols = len(numeric_columns)
+        
+        # Create subplots - one for each numeric column
+        fig, axes = plt.subplots(n_cols, 1, figsize=(figsize[0], figsize[1] * n_cols))
+        
+        # Handle single column case (axes won't be iterable)
+        if n_cols == 1:
+            axes = [axes]
+        
+        for idx, col in enumerate(numeric_columns):
+            ax = axes[idx]
+            
+            # Remove missing values for plotting
+            data = self.df[col].dropna()
+            
+            if len(data) == 0:
+                ax.text(0.5, 0.5, f'No data available for {col}', 
+                       ha='center', va='center', transform=ax.transAxes)
+                ax.set_title(f'{col} - Distribution (No Data)')
+                continue
+            
+            # Plot histogram
+            ax.hist(data, bins=bins, density=False, alpha=0.7, edgecolor='black', 
+                   color='steelblue', label='Histogram')
+            
+            # Add KDE if requested
+            if kde:
+                try:
+                    from scipy import stats
+                    # Create KDE
+                    kde_data = stats.gaussian_kde(data)
+                    x_range = data.min(), data.max()
+                    x_values = np.linspace(x_range[0], x_range[1], 200)
+                    kde_values = kde_data(x_values)
+                    
+                    # Scale KDE to match histogram scale
+                    hist_counts, _, _ = ax.hist(data, bins=bins, alpha=0)
+                    max_hist = hist_counts.max()
+                    max_kde = kde_values.max()
+                    if max_kde > 0:
+                        scaled_kde = kde_values * (max_hist / max_kde)
+                        ax_twin = ax.twinx()
+                        ax_twin.plot(x_values, scaled_kde, 'r-', linewidth=2, label='KDE')
+                        ax_twin.set_ylabel('Density', color='r')
+                        ax_twin.tick_params(axis='y', labelcolor='r')
+                except ImportError:
+                    print(f"  Warning: scipy not available, skipping KDE for {col}")
+                except Exception as e:
+                    print(f"  Warning: Could not plot KDE for {col}: {e}")
+            
+            # Add statistics to plot
+            mean_val = data.mean()
+            median_val = data.median()
+            std_val = data.std()
+            
+            ax.axvline(mean_val, color='red', linestyle='--', linewidth=2, label=f'Mean: {mean_val:.2f}')
+            ax.axvline(median_val, color='green', linestyle='--', linewidth=2, label=f'Median: {median_val:.2f}')
+            
+            ax.set_title(f'{col} - Distribution (n={len(data)})', fontsize=12, fontweight='bold')
+            ax.set_xlabel(col, fontsize=10)
+            ax.set_ylabel('Frequency', fontsize=10)
+            ax.legend(loc='best', fontsize=9)
+            ax.grid(True, alpha=0.3, linestyle='--')
+        
+        # Adjust spacing between subplots and layout
+        plt.tight_layout()
+        plt.subplots_adjust(hspace=hspace)
+        
+        # Enable interactive mode for non-blocking display
+        plt.ion()
+        plt.show(block=False)
+        # Give matplotlib time to render the plot window
+        plt.pause(0.5)  # Longer pause to ensure plot window is fully rendered
+        print(f"\nDistribution plots displayed for {len(numeric_columns)} numeric column(s).")
+        plt.draw()  # Force a draw to update the display
+        
 
 
     @print_divider("CATEGORICAL COLUMNS STATISTICS")

@@ -11,10 +11,14 @@ def main():
     dsObj.missing_values_analysis()
     dsObj.data_types_summary()
     dsObj.numeric_summary()
+    dsObj.numeric_distributions()
     dsObj.categorical_summary()
     dsObj.correlation_analysis()
     # End of common dataset analysis
 
+    # Press Enter key to exit the program
+    print("\nPress Enter key to exit the program...")
+    input()
 
 
 
