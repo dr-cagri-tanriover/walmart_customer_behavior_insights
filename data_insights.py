@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from utils import printing as prt
+from utils import reportify as rprt
 
 def print_divider(text: str):
     def decorator(func_name: str):
@@ -16,14 +17,22 @@ def print_divider(text: str):
         return wrapper
     return decorator    
 
+def print_line(func_name: str):
+    def wrapper(*args, **kwargs):
+        print(f"\n" + "=" *80)
+        func_name(*args, **kwargs)
+    return wrapper
 
 
 class DataInsights:
 
     @print_divider("INITIALIZING DATA INSIGHTS OBJECT")
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, reportout_filepath: Path, pdf_report_title: str):
         self.df = pd.DataFrame()
         
+        self.reportObj = rprt.reporter(reportout_filepath)
+        self.pdf_report_title = pdf_report_title
+
         try:
             self.df = pd.read_csv(path)
             print(f"Data loaded successfully: {len(self.df)} rows, {len(self.df.columns)} columns")
@@ -35,20 +44,30 @@ class DataInsights:
             raise
 
 
-    @print_divider("BASIC DATAFRAME INFORMATION")
+    def end_operation(self):
+        """
+            Perform all required final operations internal to this class.
+        """
+        self.reportObj.generate_report()  # Finalize the report out as required.
+
+
+    #@print_divider("BASIC DATAFRAME INFORMATION")
+    @print_line
     def basic_info(self):
         """
             Display basic information about the dataframe self.df
         """
-        
-        print(f"Number of rows: {len(self.df)}")
-        print(f"Number of columns: {len(self.df.columns)}")
-        #print(f"Data types: {self.df.dtypes}")
-        print(f"Memory usage: {self.df.memory_usage(deep=True).sum() / 1024**2:.2f} MB")
+        self.reportObj.new_page(title=self.pdf_report_title)  # Start a new page in the pdf report created. Also add the report title here.
 
-        print(f"\nColumn Names:")
+        self.reportObj.print(rprt.ReportDataType.HEADING_2, "BASIC DATAFRAME INFORMATION")
+
+        self.reportObj.print(rprt.ReportDataType.BODY, f"Number of rows: {len(self.df)}")  # Print the paragraph to the console as well as the pdf report
+        self.reportObj.print(rprt.ReportDataType.BODY, f"Number of columns: {len(self.df.columns)}")  # Print the paragraph to the console as well as the pdf report
+        self.reportObj.print(rprt.ReportDataType.BODY, f"Memory usage: {self.df.memory_usage(deep=True).sum() / 1024**2:.2f} MB")  # Print the paragraph to the console as well as the pdf report
+
+        self.reportObj.print(rprt.ReportDataType.BODY, "\nColumn Names:")
         for i, col in enumerate(self.df.columns, start=1):
-            print(f"  {i}. {col}")
+            self.reportObj.print(rprt.ReportDataType.BODY, f"  {i}. {col}")  # Print the paragraph to the console as well as the pdf report
 
 
     @print_divider("MISSING VALUES ANALYSIS")
@@ -130,8 +149,9 @@ class DataInsights:
             print(f"No numeric data exists in dataset...")
 
 
-    @print_divider("NUMERIC COLUMNS DISTRIBUTION PLOTS")
-    def numeric_distributions(self, figsize: tuple = (10, 6), bins: int = 30, kde: bool = True, hspace: float = 0.3):
+    #@print_divider("NUMERIC COLUMNS DISTRIBUTION PLOTS")
+    @print_line
+    def numeric_distributions(self, figsize: tuple = (10, 6), bins: int = 30, kde: bool = True, hspace: float = 0.3, save_path: Path | str | None = None):
         """
         Plot the distribution of each numeric column in the dataset.
         
@@ -140,6 +160,7 @@ class DataInsights:
             bins: Number of bins for histogram
             kde: Whether to overlay Kernel Density Estimation (KDE) plot
             hspace: Height space between subplots (default: 0.3). Increase for more spacing.
+            save_path: Optional filepath to save the plot. Supports .png, .pdf, .jpg, .svg formats.
         """
         
         numeric_columns = self.df.select_dtypes(include=["number"]).columns.tolist()
@@ -220,6 +241,19 @@ class DataInsights:
         # Adjust spacing between subplots and layout
         plt.tight_layout()
         plt.subplots_adjust(hspace=hspace)
+        
+        # Save the plot if filepath is provided
+        if save_path is not None:
+            save_path = Path(save_path)
+            # Create directory if it doesn't exist
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            # Save the figure
+            fig.savefig(str(save_path), dpi=300, bbox_inches='tight')
+            print(f"\nPlot saved to: {save_path}")
+            # Add the saved plot filepath to the report
+            self.reportObj.new_page() # A new page for current analysis output
+            self.reportObj.print(rprt.ReportDataType.HEADING_2, "NUMERIC COLUMNS DISTRIBUTION PLOTS")
+            self.reportObj.print_image(save_path)
         
         # Enable interactive mode for non-blocking display
         plt.ion()
